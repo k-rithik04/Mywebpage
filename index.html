@@ -1,0 +1,495 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width,initial-scale=1" />
+    <title>Rithika Liyanage — AI Portfolio (Liquid Glass)</title>
+
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <style>
+        /* --- 1. CORE STYLES & FONT --- */
+        :root{
+            --muted:#6b7280;
+            --accent:#2563eb;
+            --glass-border: rgba(255,255,255,0.45);
+            --glass-weak: rgba(255,255,255,0.14);
+        }
+        /* Apple-system font stack (SF Pro equivalent) */
+        html,body{height:100%;margin:0;font-family:-apple-system, BlinkMacSystemFont, "SF Pro Text","Segoe UI","Roboto","Inter",system-ui, sans-serif; -webkit-font-smoothing:antialiased;-moz-osx-font-smoothing:grayscale;}
+        
+        /* Liquid Background Animation */
+        body{background:linear-gradient(120deg,#f5f8ff 0%,#f3eefc 50%,#f0f9ff 100%);background-size:400% 400%;animation:bgpan 20s ease infinite;color:#0f172a;overflow-y:auto; padding-top: 5rem; /* Space for fixed dock */}
+        @keyframes bgpan{0%{background-position:0% 50%}50%{background-position:100% 50%}100%{background-position:0% 50%}}
+
+        /* --- 2. GLASS MORPHISM COMPONENTS --- */
+
+        /* Floating soft shapes (depth) */
+        .soft-blob{position:fixed;pointer-events:none;border-radius:50%;filter:blur(36px) saturate(110%);opacity:0.45;z-index:-2}
+        .blob-a{width:360px;height:360px;left:-120px;top:-80px;background:linear-gradient(90deg,#e6f1ff,#f3e8ff)}
+        .blob-b{width:320px;height:320px;right:-80px;bottom:-120px;background:linear-gradient(90deg,#e6fff4,#efe7ff)}
+
+        /* Pill Dock (Navigation) */
+        .pill-dock{position:fixed;top:1rem;left:50%;transform:translateX(-50%);display:flex;gap:0.5rem;padding:0.45rem;border-radius:9999px;background:linear-gradient(180deg, rgba(255,255,255,0.26), rgba(255,255,255,0.08));backdrop-filter:blur(14px);border:1px solid rgba(255,255,255,0.5);z-index:60}
+        .pill-dock button{appearance:none;border:0;background:transparent;padding:0.5rem 0.9rem;border-radius:9999px;font-weight:600;cursor:pointer;color:var(--muted);transition:all .18s}
+        .pill-dock button:hover{background:rgba(255,255,255,0.6);color:var(--accent);transform:translateY(-3px)}
+
+        /* Glass Card (Primary Content) */
+        .glass-card{position:relative;border-radius:1.25rem;background:linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.08));border:1px solid var(--glass-border);backdrop-filter:blur(12px) saturate(120%);box-shadow:0 10px 30px rgba(2,6,23,0.06);padding:1.25rem;transition:transform .35s cubic-bezier(.2,.9,.2,1),box-shadow .28s}
+        .glass-reflection{position:absolute;inset:0;border-radius:inherit;pointer-events:none;background:linear-gradient(120deg, rgba(255,255,255,0.16), rgba(255,255,255,0.02));mix-blend-mode:overlay;opacity:0.8}
+
+        /* Hover Tilt Interaction Class (Applied by JS) */
+        .is-hover { 
+            box-shadow:0 18px 40px rgba(2,6,23,0.12); /* Deeper shadow on hover */
+            transform-origin:center; 
+            animation: none !important; /* Stop breathing when hovering for tilt */
+        }
+
+        /* Breathing Animation */
+        @keyframes breathe {0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-3px) scale(1.01)}}
+        .breathing {animation:breathe 8s ease-in-out infinite;transform-origin:center}
+        
+        /* Main container and footer */
+        .container{max-width:1100px;margin:4.2rem auto;padding:2rem}
+        footer{margin-top:2rem;text-align:center;color:var(--muted);font-size:.95rem;padding-bottom:2rem}
+        a{color:var(--accent)}
+
+        /* --- 3. TIMELINE LAYOUT & INTERACTIVITY (FIXED) --- */
+
+        .timeline {display:flex;flex-direction:column;gap:0.75rem}
+        /* timeline-wrap is the parent for the item and the description popup */
+        .timeline-wrap{position:relative;overflow:visible}
+        .timeline-item{display:grid;grid-template-columns:1fr auto;align-items:center;gap:1rem;padding:0.45rem 0.25rem;min-height:64px}
+        .timeline-left{display:flex;align-items:center;gap:0.75rem;min-width:0;transition:transform .32s cubic-bezier(.2,.9,.2,1)}
+        .timeline-left:focus { outline: 2px solid var(--accent); border-radius: 0.5rem;}
+        .timeline-bullet{width:11px;height:11px;border-radius:999px;background:linear-gradient(180deg,var(--accent),#60a5fa);box-shadow:0 6px 14px rgba(37,99,235,0.12);flex-shrink:0}
+        .timeline-title{font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:#0f172a}
+        .timeline-sub{font-size:.87rem;color:var(--muted);margin-top:.15rem}
+
+        /* Description Panel (The liquid pop-up on hover) */
+        .liquid-desc{
+            position:absolute;
+            right: 0; /* Align to the right edge of the timeline-wrap (which is the card width) */
+            top: 50%;
+            transform: translateY(-50%) translateX(10px) scale(0.98); /* Initial position slightly off-screen to the right */
+            min-width:46%;
+            max-width:64%;
+            background:linear-gradient(180deg, rgba(255,255,255,0.5), rgba(255,255,255,0.4));
+            border-radius:.85rem;
+            padding:1rem;
+            border:1px solid rgba(255,255,255,0.6);
+            opacity:0;
+            pointer-events:none;
+            transition:all .32s cubic-bezier(.2,.9,.2,1);
+            backdrop-filter: blur(14px) saturate(120%);
+            box-shadow:0 10px 30px rgba(2,6,23,0.1);
+            /* Important for staying within the card: */
+            max-height: 100%; /* Ensure it doesn't overflow vertically */
+            z-index: 10;
+        }
+        .liquid-desc.show{
+            opacity:1;
+            /* Move it left/up until the right edge of the popup hits the right edge of the timeline-wrap */
+            transform: translateY(-50%) translateX(0) scale(1); 
+            pointer-events:auto;
+        }
+
+        /* Hover Animations FIX */
+        .timeline-wrap:hover .timeline-left{
+            /* Minimal shift to the left, preventing overflow */
+            transform: translateX(-10px); 
+        }
+        .timeline-wrap:hover .liquid-desc{
+            opacity:1;
+            transform:translateY(-50%) translateX(0) scale(1);
+        }
+
+        /* Mobile Fallback: Description stacks below (Adjusted breakpoint to be safer) */
+        @media (max-width:768px){ /* Using 768px (md breakpoint) for better mobile safety */
+            .liquid-desc{
+                position:relative;
+                transform:none;
+                top:auto;
+                right:auto;
+                margin-top:.6rem;
+                min-width:auto;
+                max-width:100%;
+                opacity:0; /* Keep transition for initial state */
+            }
+            .liquid-desc.show {
+                opacity: 1;
+                transform: none; /* Reset transform for stacking */
+            }
+            .timeline-item{grid-template-columns:1fr}
+            .timeline-left{transform:none !important}
+            .timeline-wrap:hover .timeline-left{transform:none}
+        }
+        
+        /* Small utilities */
+        .section-head{display:flex;align-items:center;gap:.75rem;margin-bottom:1rem}
+        .section-head h2{font-size:1.15rem;font-weight:800}
+        .transition-opacity-slow {
+             transition: opacity 0.4s ease-in-out; /* Slightly slower fade for 'liquid' feel */
+        }
+    </style>
+</head>
+<body class="antialiased">
+    <div class="soft-blob blob-a" aria-hidden="true"></div>
+    <div class="soft-blob blob-b" aria-hidden="true"></div>
+
+    <nav class="pill-dock" role="navigation" aria-label="Primary">
+        <button onclick="navigate('home')">Home</button>
+        <button onclick="navigate('experience')">Experience</button>
+        <button onclick="navigate('education')">Education</button>
+        <button onclick="navigate('projects')">Projects</button>
+        <button onclick="navigate('contact')">Contact</button>
+    </nav>
+
+    <main class="container" id="main">
+        <section class="glass-card breathing mb-8" aria-label="Profile header">
+            <div style="display:flex;gap:1rem;align-items:center">
+                <div style="width:84px;height:84px;border-radius:18px;flex-shrink:0;background:linear-gradient(180deg,#fff,#f3f4ff);display:flex;align-items:center;justify-content:center;box-shadow: inset 0 -6px 14px rgba(255,255,255,0.6);">
+                    <svg width="44" height="44" viewBox="0 0 24 24" fill="none" aria-hidden>
+                        <rect x="2" y="2" width="20" height="20" rx="5" fill="#eef2ff"></rect>
+                        <circle cx="12" cy="10" r="3.2" fill="#c7d2fe"></circle>
+                        <path d="M6 18c1.6-2.4 3.6-3.6 6-3.6s4.4 1.2 6 3.6" stroke="#a5b4fc" stroke-width="1.2" stroke-linecap="round"></path>
+                    </svg>
+                </div>
+                <div>
+                    <h1 style="font-size:1.6rem;font-weight:900;margin:0">Rithika Liyanage</h1>
+                    <p style="margin:.25rem 0 0 0;color:var(--muted)">Computer Science Undergrad • Specializing in <strong>Artificial Intelligence</strong></p>
+                </div>
+            </div>
+            <div class="glass-reflection" aria-hidden="true"></div>
+        </section>
+
+        <div id="app-content" class="transition-opacity-slow"></div>
+
+        <footer>
+            <div>© <span id="year"></span> Rithika Liyanage · Colombo, Sri Lanka</div>
+        </footer>
+    </main>
+
+<script>
+    // Set current year in footer
+    document.getElementById('year').textContent = new Date().getFullYear();
+
+    const APP = document.getElementById('app-content');
+
+    /* --- PAGE CONTENT DEFINITION --- */
+    const pages = {
+        home: `
+            <div class="glass-card breathing">
+                <h2 style="font-weight:800;font-size:1.1rem;margin:0 0 .5rem 0">Summary</h2>
+                <p style="color:var(--muted);margin:0;">
+                    I'm a Computer Science Undergraduate at the University of Kelaniya specializing in <strong>Artificial Intelligence</strong>. 
+                    I build practical systems that combine AI, Machine Learning, and Software Development — solutions that are scalable, efficient, and user-friendly.
+                    When I'm not coding you'll probably find me drinking coffee. ☕
+                </p>
+                <div style="margin-top:.75rem;color:var(--muted);font-size:.95rem">
+                    <strong>Contact</strong><br>
+                    86/7, Wackwella Road, Galle · +94 76 032 4449 · <a href="mailto:krithikaliyanage04@gmail.com">krithikaliyanage04@gmail.com</a><br>
+                    <a href="https://www.linkedin.com/in/krithik04" target="_blank" rel="noreferrer">linkedin.com/in/krithik04</a>
+                </div>
+            </div>
+        `,
+
+        experience: `
+            <div class="glass-card">
+                <div class="section-head"><h2>Experience</h2><span style="color:var(--muted);font-weight:600">Timeline</span></div>
+                <div class="timeline">
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet" aria-hidden></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">Freelance AI & ML Developer — Fiverr</div>
+                                    <div class="timeline-sub">Oct 2025 — Present · Colombo</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>Freelance AI & ML Developer</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Design and develop intelligent applications integrating ML models with React front-ends and JS/Java back-ends. Implement data preprocessing, model training, evaluation pipelines using Python, scikit-learn, TensorFlow, and PyTorch.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet" aria-hidden></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">Founder — Pulse Brew</div>
+                                    <div class="timeline-sub">Oct 2025 — Present · Colombo</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>Pulse Brew</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Managing and nurturing emerging tech talent by connecting undergrads with real-world projects to turn classroom knowledge into impactful experience.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet" aria-hidden></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">Trainee — Damn Fine Coffee Company</div>
+                                    <div class="timeline-sub">Feb 2025 — Sep 2025 · Colombo</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>Sales & Operations</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Achieved LKR 1M+ in sales during BMICH Hotel Show (3 days). Improved retail partner sales by 25%, led merchandising and staff training, and managed showrooms & promotions.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet" aria-hidden></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">Intern — Sampath Bank (Digital Banking)</div>
+                                    <div class="timeline-sub">Apr 2023 — Sep 2023 · Galle</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>Sampath Bank — Intern</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Assisted with onboarding and troubleshooting the mobile banking app; responsible for customer acquisition (added <strong>20+ new users daily</strong>), promoted WePay sign-ups, supported loans and account openings, and improved customer UX.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet" aria-hidden></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">Member — Computer Science Students' Association (CSSA)</div>
+                                    <div class="timeline-sub">Oct 2025 — Present · University of Kelaniya</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>CSSA Member</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Active involvement in organizational and technical initiatives to foster skill development and community within the faculty.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        `,
+
+        education: `
+            <div class="glass-card">
+                <div class="section-head"><h2>Education & Certifications</h2><span style="color:var(--muted);font-weight:600">Records</span></div>
+
+                <div class="timeline">
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet"></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">BSc (Honours) — Computer Science (AI specialization)</div>
+                                    <div class="timeline-sub">University of Kelaniya · Sep 2025 — Sep 2029</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>BSc (Honours), Computer Science</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Specialization in AI & ML — coursework includes algorithms, ML fundamentals, probability & statistics, and practical AI projects.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="timeline-wrap">
+                        <div class="timeline-item">
+                            <div class="timeline-left" tabindex="0">
+                                <div class="timeline-bullet"></div>
+                                <div style="min-width:0">
+                                    <div class="timeline-title">Physical Sciences — Advanced Level</div>
+                                    <div class="timeline-sub">Mahinda College Galle · 2021 — 2024</div>
+                                </div>
+                            </div>
+                            <div class="liquid-desc" aria-hidden>
+                                <strong>A/L Physical Sciences</strong>
+                                <p style="margin-top:.4rem;color:var(--muted);font-size:.95rem;">
+                                    Focused on Physical Sciences with strong foundation for engineering and computational problem solving.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+
+                <div style="margin-top:1.5rem">
+                    <h3 style="margin:0 0 .4rem 0;font-weight:800">Certifications</h3>
+                    <div style="display:flex;flex-wrap:wrap;gap:0.5rem">
+                        <span class="px-3 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">SQL (Basic) Certificate</span>
+                        <span class="px-3 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">Introduction to GitHub Concepts</span>
+                        <span class="px-3 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">Introduction to SQL</span>
+                        <span class="px-3 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">Canva — Build your business brand</span>
+                        <span class="px-3 py-1 text-sm font-medium rounded-full bg-blue-50 text-blue-700 border border-blue-200">Certificate in Communication Skills</span>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        projects: `
+            <div class="glass-card">
+                <div class="section-head"><h2>Projects & Skills</h2><span style="color:var(--muted);font-weight:600">Snapshot</span></div>
+
+                <div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:1rem;margin-top:.5rem">
+                    <div class="glass-card" style="padding:.9rem">
+                        <h4 style="margin:0;font-weight:700;color:var(--accent)">AI-Powered Web Assistant</h4>
+                        <p style="margin:.5rem 0 0 0;color:var(--muted);font-size:.95rem">Portfolio assistant concept integrating <strong>FastAPI</strong> and local LLMs for interactive narration and personalization.</p>
+                    </div>
+
+                    <div class="glass-card" style="padding:.9rem">
+                        <h4 style="margin:0;font-weight:700;color:var(--accent)">Smart Coffee Tracker (IoT)</h4>
+                        <p style="margin:.5rem 0 0 0;color:var(--muted);font-size:.95rem">IoT + <strong>TensorFlow</strong> proof-of-concept that tracks caffeine intake and productivity correlations.</p>
+                    </div>
+
+                    <div class="glass-card" style="padding:.9rem">
+                        <h4 style="margin:0;font-weight:700;color:var(--accent)">Technical Skills</h4>
+                        <p style="margin:.5rem 0 0 0;color:var(--muted);font-size:.95rem">
+                            <strong>Python, TensorFlow, PyTorch</strong>, JavaScript/React, FastAPI, SQL, Git, Docker, C/C++, HTML/CSS.
+                        </p>
+                    </div>
+                </div>
+            </div>
+        `,
+
+        contact: `
+            <div class="glass-card text-center">
+                <h3 style="margin:0 0 .5rem 0;font-weight:800">Let's Connect</h3>
+                <p style="color:var(--muted);margin:0 0 .6rem 0">Open to internships and collaborations in AI, ML, and software development.</p>
+                <div style="margin-top:.5rem;color:var(--muted)">
+                    <div>📍 Colombo, Western Province, Sri Lanka</div>
+                    <div>📞 <span style="font-weight:600">+94 76 032 4449</span></div>
+                    <div>✉️ <a href="mailto:krithikaliyanage04@gmail.com" style="font-weight:600">krithikaliyanage04@gmail.com</a></div>
+                </div>
+                <div style="margin-top:1.5rem">
+                    <a href="https://www.linkedin.com/in/krithik04" target="_blank" rel="noreferrer" class="px-6 py-2 text-sm font-semibold rounded-full bg-blue-600 text-white hover:bg-blue-700 transition transform hover:scale-[1.05]" style="box-shadow: 0 4px 12px rgba(37,99,235,0.35);">
+                        View LinkedIn →
+                    </a>
+                </div>
+            </div>
+        `
+    };
+
+    /* --- JAVASCRIPT FUNCTIONS (SPA, TILT, TIMELINE INTERACTION) --- */
+
+    /**
+     * Handles the Single Page Application (SPA) navigation logic.
+     * @param {string} page - The key for the page content.
+     */
+    function navigate(page) {
+        APP.style.opacity = '0';
+        setTimeout(() => {
+            APP.innerHTML = pages[page] || pages.home;
+            APP.style.opacity = '1';
+            history.pushState({page}, '', page === 'home' ? '/' : '#'+page);
+            // After content is inserted, initialize hover physics & timeline accessibility
+            window.requestIdleCallback(initInteractiveCards, {timeout:500});
+        }, 400); // Matches the CSS transition time of 0.4s
+    }
+
+    window.navigate = navigate;
+
+    /**
+     * Handles back/forward browser navigation (history state changes).
+     */
+    window.onpopstate = (e) => {
+        const page = e.state?.page || 'home';
+        APP.innerHTML = pages[page] || pages.home;
+        APP.style.opacity = '1';
+        window.requestIdleCallback(initInteractiveCards, {timeout:500});
+    };
+
+    /**
+     * Initializes interactive behaviors (3D tilt on hover and timeline description visibility)
+     * for dynamically loaded content.
+     */
+    function initInteractiveCards() {
+        // --- 1. Tilt Physics for Glass Cards ---
+        document.querySelectorAll('.glass-card').forEach(card => {
+            if (card.__tilt_init) return;
+            card.__tilt_init = true;
+
+            let rect = null;
+            let hovering = false;
+
+            function onEnter(e){
+                rect = card.getBoundingClientRect();
+                card.classList.add('is-hover');
+                hovering = true;
+            }
+            function onLeave(){
+                card.classList.remove('is-hover');
+                card.style.transform = '';
+                hovering = false;
+            }
+            function onMove(e){
+                if(!hovering || !rect) return;
+                const px = (e.clientX - rect.left) / rect.width;
+                const py = (e.clientY - rect.top) / rect.height;
+                const ox = (px - 0.5) * 2;
+                const oy = (py - 0.5) * 2;
+                const rotateY = ox * 4;
+                const rotateX = -oy * 4;
+                const translateX = ox * 3;
+                const translateY = oy * -3;
+                card.style.transform = `perspective(900px) rotateX(${rotateX}deg) rotateY(${rotateY}deg) translate3d(${translateX}px, ${translateY}px, 0) scale(1.006)`;
+            }
+
+            card.addEventListener('pointerenter', onEnter, {passive:true});
+            card.addEventListener('pointerleave', onLeave, {passive:true});
+            card.addEventListener('pointermove', onMove, {passive:true});
+
+            card.addEventListener('focusin', onEnter);
+            card.addEventListener('focusout', onLeave);
+        });
+
+        // --- 2. Timeline Hover Behavior ---
+        document.querySelectorAll('.timeline-wrap').forEach(wrap => {
+            if (wrap.__timeline_init) return;
+            wrap.__timeline_init = true;
+            
+            const desc = wrap.querySelector('.liquid-desc');
+            const left = wrap.querySelector('.timeline-left');
+            if (!desc || !left) return;
+
+            wrap.addEventListener('pointerenter', ()=> desc.classList.add('show'));
+            wrap.addEventListener('pointerleave', ()=> desc.classList.remove('show'));
+
+            left.setAttribute('tabindex','0');
+            left.addEventListener('focus', ()=> desc.classList.add('show'));
+            left.addEventListener('blur', ()=> desc.classList.remove('show'));
+        });
+    }
+
+    // Polyfill for requestIdleCallback
+    window.requestIdleCallback = window.requestIdleCallback || function(cb){return setTimeout(cb,50);};
+
+    // --- INITIAL PAGE LOAD ---
+    // Load initial page based on URL hash or default to 'home'
+    navigate(window.location.hash.substring(1) || 'home');
+</script>
+</body>
+</html>
